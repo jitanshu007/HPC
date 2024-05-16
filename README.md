@@ -242,3 +242,338 @@ void bitonic_sort(vector<int>& arr) {
 
 
 
+# 10 queen
+```
+#include <iostream>
+#include <vector>
+#include <chrono>
+
+using namespace std;
+using namespace std::chrono;
+
+int solution_count = 0;
+
+bool is_safe(vector<vector<int>>& board, int row, int col, int n) {
+    // Check if there's a queen in the same column
+    for (int i = 0; i < row; ++i) {
+        if (board[i][col] == 1)
+            return false;
+    }
+
+    // Check upper left diagonal
+    for (int i = row, j = col; i >= 0 && j >= 0; --i, --j) {
+        if (board[i][j] == 1)
+            return false;
+    }
+
+    // Check upper right diagonal
+    for (int i = row, j = col; i >= 0 && j < n; --i, ++j) {
+        if (board[i][j] == 1)
+            return false;
+    }
+
+    return true;
+}
+
+bool solve_n_queens_util(vector<vector<int>>& board, int row, int n) {
+    if (row == n) {
+        // Print the solution
+        for (const auto& r : board) {
+            for (int val : r) {
+                cout << val << " ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+        solution_count++;
+        return true;
+    }
+
+    bool res = false;
+
+    for (int col = 0; col < n; ++col) {
+        if (is_safe(board, row, col, n)) {
+            board[row][col] = 1;
+            res = solve_n_queens_util(board, row + 1, n) || res;
+            board[row][col] = 0;
+        }
+    }
+
+    return res;
+}
+
+void solve_n_queens(int n) {
+    vector<vector<int>> board(n, vector<int>(n, 0));
+
+    auto start = high_resolution_clock::now();
+    if (!solve_n_queens_util(board, 0, n)) {
+        cout << "Solution does not exist" << endl;
+    }
+    auto stop = high_resolution_clock::now();
+
+    auto duration = duration_cast<milliseconds>(stop - start);
+
+    cout << "Number of solutions: " << solution_count << endl;
+    cout << "Time taken: " << duration.count() << " milliseconds" << endl;
+}
+
+int main() {
+    int n = 10;
+    solve_n_queens(n);
+    return 0;
+}
+```
+```
+#include <iostream>
+#include <vector>
+#include <chrono>
+#include <omp.h>
+
+using namespace std;
+using namespace std::chrono;
+
+int solution_count = 0;
+
+bool is_safe(const vector<vector<int>>& board, int row, int col, int n) {
+    // Check if there's a queen in the same column
+    for (int i = 0; i < row; ++i) {
+        if (board[i][col] == 1)
+            return false;
+    }
+
+    // Check upper left diagonal
+    for (int i = row, j = col; i >= 0 && j >= 0; --i, --j) {
+        if (board[i][j] == 1)
+            return false;
+    }
+
+    // Check upper right diagonal
+    for (int i = row, j = col; i >= 0 && j < n; --i, ++j) {
+        if (board[i][j] == 1)
+            return false;
+    }
+
+    return true;
+}
+
+void solve_n_queens_util(vector<vector<int>>& board, int row, int n) {
+    if (row == n) {
+#pragma omp critical
+        {
+            // Print the solution
+            for (const auto& r : board) {
+                for (int val : r) {
+                    cout << val << " ";
+                }
+                cout << endl;
+            }
+            cout << endl;
+            solution_count++;
+        }
+
+        return;
+    }
+
+    for (int col = 0; col < n; ++col) {
+        if (is_safe(board, row, col, n)) {
+            board[row][col] = 1;
+            solve_n_queens_util(board, row + 1, n);
+            board[row][col] = 0;
+        }
+    }
+}
+
+void solve_n_queens(int n) {
+    vector<vector<int>> board(n, vector<int>(n, 0));
+
+    auto start = high_resolution_clock::now();
+
+#pragma omp parallel for
+    for (int col = 0; col < n; ++col) {
+        vector<vector<int>> local_board(board);
+        local_board[0][col] = 1;
+        solve_n_queens_util(local_board, 1, n);
+    }
+
+    auto stop = high_resolution_clock::now();
+
+    auto duration = duration_cast<milliseconds>(stop - start);
+    cout << "Number of solutions: " << solution_count << endl;
+    cout << "Time taken: " << duration.count() << " milliseconds" << endl;
+}
+
+int main() {
+    int n = 10;
+    solve_n_queens(n);
+    return 0;
+}
+```
+
+
+# place_horses_sequential
+```
+#include <iostream>
+#include <vector>
+using namespace std;
+
+const int BOARD_SIZE = 10;
+
+bool is_safe(const vector<vector<bool>>& board, int row, int col) {
+    // Check if the cell is empty
+    if (!board[row][col])
+        return false;
+
+    // Check if there's already a horse in the same row
+    for (int j = 0; j < BOARD_SIZE; ++j) {
+        if (j != col && board[row][j])
+            return false;
+    }
+
+    // Check if there's already a horse in the same column
+    for (int i = 0; i < BOARD_SIZE; ++i) {
+        if (i != row && board[i][col])
+            return false;
+    }
+
+    // Check for diagonals
+    for (int i = row - 2, j = col - 1; i >= 0 && j >= 0; --i, --j) {
+        if (board[i][j])
+            return false;
+    }
+
+    for (int i = row - 2, j = col + 1; i >= 0 && j < BOARD_SIZE; --i, ++j) {
+        if (board[i][j])
+            return false;
+    }
+
+    for (int i = row + 2, j = col - 1; i < BOARD_SIZE && j >= 0; ++i, --j) {
+        if (board[i][j])
+            return false;
+    }
+
+    for (int i = row + 2, j = col + 1; i < BOARD_SIZE && j < BOARD_SIZE; ++i, ++j) {
+        if (board[i][j])
+            return false;
+    }
+
+    return true;
+}
+
+void place_horses_sequential(vector<vector<bool>>& board, int row) {
+    if (row == BOARD_SIZE) {
+        // Print the solution
+        for (int i = 0; i < BOARD_SIZE; ++i) {
+            for (int j = 0; j < BOARD_SIZE; ++j) {
+                cout << (board[i][j] ? "H " : "_ ");
+            }
+            cout << endl;
+        }
+        cout << endl;
+        return;
+    }
+
+    for (int col = 0; col < BOARD_SIZE; ++col) {
+        if (is_safe(board, row, col)) {
+            board[row][col] = true;
+            place_horses_sequential(board, row + 1);
+            board[row][col] = false;
+        }
+    }
+}
+
+int main() {
+    vector<vector<bool>> board(BOARD_SIZE, vector<bool>(BOARD_SIZE, true));
+    place_horses_sequential(board, 0);
+    return 0;
+}
+```
+
+
+```
+#include <iostream>
+#include <vector>
+#include <omp.h>
+using namespace std;
+
+const int BOARD_SIZE = 10;
+
+bool is_safe(const vector<vector<bool>>& board, int row, int col) {
+    // Check if the cell is empty
+    if (!board[row][col])
+        return false;
+
+    // Check if there's already a horse in the same row
+    for (int j = 0; j < BOARD_SIZE; ++j) {
+        if (j != col && board[row][j])
+            return false;
+    }
+
+    // Check if there's already a horse in the same column
+    for (int i = 0; i < BOARD_SIZE; ++i) {
+        if (i != row && board[i][col])
+            return false;
+    }
+
+    // Check for diagonals
+    for (int i = row - 2, j = col - 1; i >= 0 && j >= 0; --i, --j) {
+        if (board[i][j])
+            return false;
+    }
+
+    for (int i = row - 2, j = col + 1; i >= 0 && j < BOARD_SIZE; --i, ++j) {
+        if (board[i][j])
+            return false;
+    }
+
+    for (int i = row + 2, j = col - 1; i < BOARD_SIZE && j >= 0; ++i, --j) {
+        if (board[i][j])
+            return false;
+    }
+
+    for (int i = row + 2, j = col + 1; i < BOARD_SIZE && j < BOARD_SIZE; ++i, ++j) {
+        if (board[i][j])
+            return false;
+    }
+
+    return true;
+}
+
+void place_horses_parallel(vector<vector<bool>>& board, int row) {
+    if (row == BOARD_SIZE) {
+        // Print the solution
+#pragma omp critical
+        {
+            for (int i = 0; i < BOARD_SIZE; ++i) {
+                for (int j = 0; j < BOARD_SIZE; ++j) {
+                    cout << (board[i][j] ? "H " : "_ ");
+                }
+                cout << endl;
+            }
+            cout << endl;
+        }
+        return;
+    }
+
+#pragma omp parallel for
+    for (int col = 0; col < BOARD_SIZE; ++col) {
+        if (is_safe(board, row, col)) {
+            board[row][col] = true;
+            place_horses_parallel(board, row + 1);
+            board[row][col] = false;
+        }
+    }
+}
+
+int main() {
+    vector<vector<bool>> board(BOARD_SIZE, vector<bool>(BOARD_SIZE, true));
+#pragma omp parallel for
+    for (int col = 0; col < BOARD_SIZE; ++col) {
+        board[0][col] = true;
+        place_horses_parallel(board, 1);
+        board[0][col] = false;
+    }
+    return 0;
+}
+
+```
+
