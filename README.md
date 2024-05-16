@@ -577,3 +577,102 @@ int main() {
 
 ```
 
+# cudda
+
+
+```
+#include <stdio.h>
+#include <math.h>
+
+#define N 1024
+#define BLOCK_SIZE 256
+
+__global__ void distanceAndNorm(float *x, float *y, float *result, float *normX, float *normY) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (idx < N) {
+        float distance = y[idx] - x[idx * idx];
+        result[idx] = distance;
+        
+        atomicAdd(normX, x[idx * idx] * x[idx * idx]);
+        atomicAdd(normY, y[idx] * y[idx]);
+    }
+}
+
+int main() {
+    float *x, *y, *result, *normX, *normY;
+    float *d_x, *d_y, *d_result, *d_normX, *d_normY;
+    float normX_host = 0.0f, normY_host = 0.0f;
+    
+    // Allocate memory on host
+    x = (float*)malloc(N * sizeof(float));
+    y = (float*)malloc(N * sizeof(float));
+    result = (float*)malloc(N * sizeof(float));
+
+    // Initialize x and y
+    for (int i = 0; i < N; ++i) {
+        x[i] = (float)(i * i);
+        y[i] = (float)(2 * i + 1);
+    }
+
+    // Allocate memory on device
+    cudaMalloc((void**)&d_x, N * sizeof(float));
+    cudaMalloc((void**)&d_y, N * sizeof(float));
+    cudaMalloc((void**)&d_result, N * sizeof(float));
+    cudaMalloc((void**)&d_normX, sizeof(float));
+    cudaMalloc((void**)&d_normY, sizeof(float));
+
+    // Copy data from host to device
+    cudaMemcpy(d_x, x, N * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_y, y, N * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Launch kernel
+    distanceAndNorm<<<(N + BLOCK_SIZE - 1) / BLOCK_SIZE, BLOCK_SIZE>>>(d_x, d_y, d_result, d_normX, d_normY);
+
+    // Copy results from device to host
+    cudaMemcpy(result, d_result, N * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&normX_host, d_normX, sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&normY_host, d_normY, sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Calculate Euclidean norms
+    normX_host = sqrtf(normX_host);
+    normY_host = sqrtf(normY_host);
+
+    // Display distance and norms
+    printf("Distance between x and y:\n");
+    for (int i = 0; i < N; ++i) {
+        printf("%.2f ", result[i]);
+    }
+    printf("\n\nEuclidean norm of x: %.2f\n", normX_host);
+    printf("Euclidean norm of y: %.2f\n", normY_host);
+
+    // Calculate standard deviation of y
+    float mean = 0.0f;
+    for (int i = 0; i < N; ++i) {
+        mean += y[i];
+    }
+    mean /= N;
+
+    float stddev = 0.0f;
+    for (int i = 0; i < N; ++i) {
+        stddev += (y[i] - mean) * (y[i] - mean);
+    }
+    stddev = sqrtf(stddev / N);
+
+    printf("\nStandard deviation of y: %.2f\n", stddev);
+
+    // Free device memory
+    cudaFree(d_x);
+    cudaFree(d_y);
+    cudaFree(d_result);
+    cudaFree(d_normX);
+    cudaFree(d_normY);
+
+    // Free host memory
+    free(x);
+    free(y);
+    free(result);
+
+    return 0;
+}
+```
